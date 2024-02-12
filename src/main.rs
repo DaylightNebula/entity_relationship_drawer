@@ -1,13 +1,18 @@
-use std::f64::consts::TAU;
-
-use egui::{remap, Color32, FontFamily, FontId, TextStyle, Visuals};
-use egui_plot::{Legend, Line, Plot, PlotPoints, Text};
+use egui::{FontFamily, FontId, Rect, TextStyle, Vec2, Visuals};
+use egui_plot::{Legend, Plot, PlotPoint};
 use objects::Objects;
 
 pub mod objects;
 
 pub struct App {
     pub objects: Objects
+}
+
+#[derive(Debug, Default)]
+pub struct AppState {
+    pub mouse_position: Vec2,
+    pub vaspect: f32,
+    pub haspect: f32
 }
 
 impl App {
@@ -26,29 +31,40 @@ impl App {
             ].into();
         });
         
-        Self { objects: Objects::default() }
+        let mut me = Self { objects: Objects::default() };
+        let test = me.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
+        test.name = "Test Me".to_string();
+        me
     }
 
-    fn circle(&self) -> Line {
-        let n = 512;
-        let circle_points: PlotPoints = (0..=n)
-            .map(|i| {
-                let t = remap(i as f64, 0.0..=(n as f64), 0.0..=TAU);
-                let r = 0.05;
-                [
-                    r * t.cos() + 0.0 as f64,
-                    r * t.sin() + 0.0 as f64,
-                ]
-            })
-            .collect();
-        Line::new(circle_points)
-            .color(Color32::from_rgb(0, 0, 0))
-            .style(egui_plot::LineStyle::Dashed { length: 10.0 })
-    }
+    // fn circle(&self) -> Line {
+    //     let n = 512;
+    //     let circle_points: PlotPoints = (0..=n)
+    //         .map(|i| {
+    //             let t = remap(i as f64, 0.0..=(n as f64), 0.0..=TAU);
+    //             let r = 0.05;
+    //             [
+    //                 r * t.cos() + 0.0 as f64,
+    //                 r * t.sin() + 0.0 as f64,
+    //             ]
+    //         })
+    //         .collect();
+    //     Line::new(circle_points)
+    //         .color(Color32::from_rgb(0, 0, 0))
+    //         .style(egui_plot::LineStyle::Dashed { length: 10.0 })
+    // }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        // create app state
+        let mut state = AppState::default();
+        ctx.input(|input| {
+            let rect = input.viewport().inner_rect.unwrap();
+            state.vaspect = rect.height() / rect.width();
+            state.haspect = rect.width() / rect.height();
+        });
+
         // create top bar
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -73,8 +89,21 @@ impl eframe::App for App {
                 .data_aspect(1.0)
                 .auto_bounds(false.into())
                 .show(ui, |ui| {
-                    ui.line(self.circle());
-                    ui.text(Text::new([0.0, 0.0].into(), "Test Text").color(Color32::from_rgb(0, 0, 0)));
+                    // update app state
+                    let pointer = ui.pointer_coordinate();
+                    if pointer.is_some() {
+                        let pointer = pointer.unwrap();
+                        state.mouse_position.x = pointer.x as f32;
+                        state.mouse_position.y = pointer.y as f32;
+                    }
+
+                    // draw objects
+                    self.objects.objects.iter_mut().for_each(|object| {
+                        object.draw(ui, &mut state);
+                    });
+
+                    // ui.line(self.circle());
+                    // ui.text(Text::new([0.0, 0.0].into(), "Test Text").color(Color32::from_rgb(0, 0, 0)));
                 });
         });
     }
