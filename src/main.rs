@@ -2,9 +2,14 @@ use std::f64::consts::TAU;
 
 use egui::{remap, Color32, FontFamily, FontId, TextStyle, Visuals};
 use egui_plot::{Legend, Line, Plot, PlotPoints, Text};
+use objects::Objects;
 
+pub mod objects;
 
-pub struct App {}
+pub struct App {
+    pub objects: Objects
+}
+
 impl App {
     pub fn from_context(context: &eframe::CreationContext<'_>) -> Self {
         // set visuals
@@ -21,7 +26,7 @@ impl App {
             ].into();
         });
         
-        Self {}
+        Self { objects: Objects::default() }
     }
 
     fn circle(&self) -> Line {
