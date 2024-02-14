@@ -96,10 +96,11 @@ impl eframe::App for App {
                         // take screen shot
                         let args = std::env::args().collect::<Vec<String>>();
                         let start_path = args.first().expect("Rules broke");
-                        Command::new(start_path)
+                        let output = Command::new(start_path)
                             .args(["screenshot", self.saved_to.clone().unwrap().to_str().unwrap()])
                             .output()
                             .expect("Screen shot failed!");
+                        println!("Export output: {:?}", output);
 
                         ui.close_menu();
                     }
