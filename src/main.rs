@@ -1,4 +1,7 @@
+use std::{fs::File, io::Write};
+
 use egui::{pos2, Pos2, Rect, Visuals};
+use native_dialog::*;
 use objects::Objects;
 
 pub mod objects;
@@ -36,16 +39,44 @@ impl eframe::App for App {
         // create top bar
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |_ui| {
-                    
+                ui.menu_button("File", |ui| {
+                    // create open button
+                    if ui.button("Open").clicked() {
+                        // get open path
+                        let path = FileDialog::new()
+                            .set_location("~")
+                            .add_filter("Entity Relationship File", &["er"])
+                            .show_open_single_file()
+                            .unwrap();
+
+                        // do open
+                        if path.is_some() {
+                            self.objects = serde_json::from_str(std::fs::read_to_string(path.unwrap()).unwrap().as_str()).unwrap();
+                        }
+                    }
+
+                    // create save button
+                    if ui.button("Save").clicked() {
+                        // get save location
+                        let path = FileDialog::new()
+                            .set_location("~")
+                            .add_filter("Entity Relationship File", &["er"])
+                            .show_save_single_file()
+                            .unwrap();
+
+                        // do save
+                        if path.is_some() {
+                            let path = path.unwrap();
+                            let to_save = serde_json::to_string(&self.objects);
+                            let file = File::create(path);
+                            if file.is_ok() && to_save.is_ok() {
+                                let _ = file.unwrap().write(to_save.unwrap().as_bytes());
+                            } else {
+                                println!("Save error, file: {:?}, to_save: {:?}", file, to_save);
+                            }
+                        }
+                    }
                 });
-                // ui.menu_button("Create", |ui| {
-                //     if ui.button("Entity").clicked() {
-                //         let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
-                //         self.selected = Some(item.id);
-                //         ui.close_menu();
-                //     }
-                // });
                 if ui.button("Create").clicked() {
                     let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
                     self.selected = Some(item.id);
