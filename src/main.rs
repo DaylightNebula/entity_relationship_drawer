@@ -1,15 +1,17 @@
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 
 use egui::{pos2, Pos2, Rect, Visuals};
 use native_dialog::*;
 use objects::Objects;
 
 pub mod objects;
+pub mod screenshot;
 
 pub struct App {
     pub objects: Objects,
     pub scroll_offset: Pos2,
-    pub selected: Option<u32>
+    pub selected: Option<u32>,
+    pub saved_to: Option<PathBuf>
 }
 
 #[derive(Debug)]
@@ -30,7 +32,32 @@ impl App {
         context.egui_ctx.set_visuals(Visuals::light());
         
         // create objects
-        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None }
+        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None }
+    }
+
+    pub fn save_as(&mut self) {
+        // get save location
+        let path = FileDialog::new()
+            .set_location("~")
+            .add_filter("Entity Relationship File", &["er"])
+            .show_save_single_file()
+            .unwrap();
+    
+        // do save
+        if path.is_some() {
+            self.save(path.unwrap());
+        }
+    }
+
+    pub fn save(&mut self, path: PathBuf) {
+        let to_save = serde_json::to_string(&self.objects);
+        let file = File::create(path.clone());
+        if file.is_ok() && to_save.is_ok() {
+            let _ = file.unwrap().write(to_save.unwrap().as_bytes());
+            self.saved_to = Some(path);
+        } else {
+            println!("Save error, file: {:?}, to_save: {:?}", file, to_save);
+        }
     }
 }
 
@@ -51,30 +78,30 @@ impl eframe::App for App {
 
                         // do open
                         if path.is_some() {
-                            self.objects = serde_json::from_str(std::fs::read_to_string(path.unwrap()).unwrap().as_str()).unwrap();
+                            self.objects = serde_json::from_str(std::fs::read_to_string(path.clone().unwrap()).unwrap().as_str()).unwrap();
+                            self.saved_to = Some(path.unwrap());
                         }
                     }
 
                     // create save button
-                    if ui.button("Save").clicked() {
-                        // get save location
-                        let path = FileDialog::new()
-                            .set_location("~")
-                            .add_filter("Entity Relationship File", &["er"])
-                            .show_save_single_file()
-                            .unwrap();
+                    if ui.button("Save").clicked() { if self.saved_to.is_some() { self.save(self.saved_to.clone().unwrap()) } else { self.save_as() }; ui.close_menu(); }
+                    if ui.button("Save As").clicked() { self.save_as(); ui.close_menu(); }
 
-                        // do save
-                        if path.is_some() {
-                            let path = path.unwrap();
-                            let to_save = serde_json::to_string(&self.objects);
-                            let file = File::create(path);
-                            if file.is_ok() && to_save.is_ok() {
-                                let _ = file.unwrap().write(to_save.unwrap().as_bytes());
-                            } else {
-                                println!("Save error, file: {:?}, to_save: {:?}", file, to_save);
-                            }
-                        }
+                    // create export button
+                    if ui.button("Export").clicked() {
+                        // make sure saved
+                        if self.saved_to.is_none() { self.save_as() }
+                        if self.saved_to.is_none() { return }
+
+                        // take screen shot
+                        let args = std::env::args().collect::<Vec<String>>();
+                        let start_path = args.first().expect("Rules broke");
+                        Command::new(start_path)
+                            .args(["screenshot", self.saved_to.clone().unwrap().to_str().unwrap()])
+                            .output()
+                            .expect("Screen shot failed!");
+
+                        ui.close_menu();
                     }
                 });
                 if ui.button("Create").clicked() {
@@ -138,18 +165,28 @@ impl eframe::App for App {
 }
 
 fn main() {
-    // create default window options
-    let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_min_inner_size([800.0, 600.0]),
-        ..Default::default()
-    };
+    let args = std::env::args().collect::<Vec<String>>();
+    if args.len() >= 3 && args[1] == "screenshot" {
+        println!("Screenshot");
+        let path = PathBuf::from_str(args[2].as_str());
 
-    // run a eframe app
-    eframe::run_native(
-        "Entity Relationship Editor", 
-        native_options, 
-        Box::new(|ctx| Box::new(App::from_context(ctx)))
-    ).unwrap();
+        // do screenshot
+        let objects: Objects = serde_json::from_str(std::fs::read_to_string(path.unwrap()).unwrap().as_str()).unwrap();
+        screenshot::screenshot(objects);
+    } else {
+        // create default window options
+        let native_options = eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size([1280.0, 720.0])
+                .with_min_inner_size([800.0, 600.0]),
+            ..Default::default()
+        };
+
+        // run a eframe app
+        eframe::run_native(
+            "Entity Relationship Editor", 
+            native_options, 
+            Box::new(|ctx| Box::new(App::from_context(ctx)))
+        ).unwrap();
+    }
 }

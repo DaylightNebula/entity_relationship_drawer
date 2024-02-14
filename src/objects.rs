@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Objects {
     pub objects: Vec<Object>,
     pub next_id: u32
@@ -19,7 +19,7 @@ impl Objects {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Object {
     pub id: u32,
     pub x: f32,
@@ -31,7 +31,7 @@ pub struct Object {
     pub dragging: bool
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum ObjectType {
     #[default]
     Entity,
@@ -121,15 +121,16 @@ impl Object {
                     }
                 });
 
-            // deselect
+            // if necessary, deselect
             if state.click && !skip_click_check && !is_hovering { state.selected = None; }
-            // set position to mouse position
+            // otherwise, if dragging and hover, mark dragging
             else if state.dragging && is_hovering {
                 self.dragging = true;
             }
 
+            // do drag
             if self.dragging {
-                self.x = -state.clip.width() / 2.0 - (self.width / 2.0) + state.mouse_position.x;
+                self.x = -state.clip.width() / 2.0 + state.mouse_position.x;
                 self.y = -state.clip.height() / 2.0 - (self.height) + state.mouse_position.y;
             }
         } 
