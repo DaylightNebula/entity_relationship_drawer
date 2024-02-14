@@ -17,6 +17,7 @@ pub struct AppState {
     pub selected: Option<u32>,
     pub click: bool,
     pub delete: bool,
+    pub dragging: bool,
     pub to_delete: Vec<u32>
 }
 
@@ -38,13 +39,18 @@ impl eframe::App for App {
                 ui.menu_button("File", |_ui| {
                     
                 });
-                ui.menu_button("Create", |ui| {
-                    if ui.button("Entity").clicked() {
-                        let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
-                        self.selected = Some(item.id);
-                        ui.close_menu();
-                    }
-                });
+                // ui.menu_button("Create", |ui| {
+                //     if ui.button("Entity").clicked() {
+                //         let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
+                //         self.selected = Some(item.id);
+                //         ui.close_menu();
+                //     }
+                // });
+                if ui.button("Create").clicked() {
+                    let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
+                    self.selected = Some(item.id);
+                    ui.close_menu();
+                }
                 ui.add_space(16.0);
             });
         });
@@ -59,7 +65,7 @@ impl eframe::App for App {
                 let mut shapes = vec![];
 
                 // read input
-                let (mouse_position, click, delete) = ctx.input(|input| {
+                let (mouse_position, click, delete, dragging) = ctx.input(|input| {
                     // middle click drag
                     if input.pointer.is_decidedly_dragging() && input.pointer.button_down(egui::PointerButton::Secondary) {
                         let drag_delta = input.pointer.delta();
@@ -75,12 +81,13 @@ impl eframe::App for App {
                     (
                         input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)), 
                         input.pointer.button_clicked(egui::PointerButton::Primary),
-                        input.key_down(egui::Key::Delete)
+                        input.key_down(egui::Key::Delete),
+                        input.pointer.button_down(egui::PointerButton::Primary)
                     )
                 });
 
                 // setup state
-                let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, to_delete: Vec::new() };
+                let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, to_delete: Vec::new() };
 
                 // draw objects
                 self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &mut state)));
