@@ -45,22 +45,37 @@ impl Object {
     pub fn draw(
         &mut self,
         ui: &mut Ui,
-        state: &AppState
+        state: &mut AppState
     ) -> Vec<Shape> {
         ui.fonts(|fonts| {
             let font_id = FontId { size: 14.0, family: egui::FontFamily::Monospace };
-
-            // calculate center point
-            let center = pos2(
-                state.clip.width() / 2.0 + state.clip.min.x + self.x,
-                state.clip.height() / 2.0 + state.clip.min.y + self.y
-            );
 
             // update widths and heights
             let text_width = self.name.char_indices().into_iter().map(|(_, char)| fonts.glyph_width(&font_id, char)).sum::<f32>();
             let text_height = font_id.size;
             self.width = text_width + 20.0;
             self.height = text_height + 20.0;
+
+            // if me selected
+            if Some(self.id) == state.selected {
+                // set position to mouse position
+                self.x = -state.clip.width() / 2.0 - (self.width / 2.0) + state.mouse_position.x;
+                self.y = -state.clip.height() / 2.0 - (self.height) + state.mouse_position.y;
+
+                // deselect
+                if state.click { state.selected = None; }
+
+                // delete
+                if state.delete { state.to_delete.push(self.id); state.selected = None; }
+            } 
+            // select me if not already selected but hovered
+            else if state.click { state.selected = Some(self.id); }
+
+            // calculate center point
+            let center = pos2(
+                state.clip.width() / 2.0 + state.clip.min.x + self.x + state.scroll_offset.x,
+                state.clip.height() / 2.0 + state.clip.min.y + self.y + state.scroll_offset.y
+            );
 
             // check if hovering
             let is_hovering = (center.x - state.mouse_position.x).abs() <= self.width / 2.0 && (center.y - state.mouse_position.y).abs() <= self.height / 2.0;

@@ -4,13 +4,20 @@ use objects::Objects;
 pub mod objects;
 
 pub struct App {
-    pub objects: Objects
+    pub objects: Objects,
+    pub scroll_offset: Pos2,
+    pub selected: Option<u32>
 }
 
 #[derive(Debug)]
 pub struct AppState {
     pub clip: Rect,
-    pub mouse_position: Pos2
+    pub scroll_offset: Pos2,
+    pub mouse_position: Pos2,
+    pub selected: Option<u32>,
+    pub click: bool,
+    pub delete: bool,
+    pub to_delete: Vec<u32>
 }
 
 impl App {
@@ -19,10 +26,7 @@ impl App {
         context.egui_ctx.set_visuals(Visuals::light());
         
         // create objects
-        let mut me = Self { objects: Objects::default() };
-        let test = me.objects.add(objects::ObjectType::FunctionParameter, 0.0, 0.0);
-        test.name = "Test Me".to_string();
-        me
+        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None }
     }
 }
 
@@ -33,6 +37,13 @@ impl eframe::App for App {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |_ui| {
                     
+                });
+                ui.menu_button("Create", |ui| {
+                    if ui.button("Entity").clicked() {
+                        let item = self.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
+                        self.selected = Some(item.id);
+                        ui.close_menu();
+                    }
                 });
                 ui.add_space(16.0);
             });
@@ -47,12 +58,39 @@ impl eframe::App for App {
                 ui.set_clip_rect(clip);
                 let mut shapes = vec![];
 
+                // read input
+                let (mouse_position, click, delete) = ctx.input(|input| {
+                    // middle click drag
+                    if input.pointer.is_decidedly_dragging() && input.pointer.button_down(egui::PointerButton::Secondary) {
+                        let drag_delta = input.pointer.delta();
+                        self.scroll_offset += drag_delta;
+                    }
+
+                    // reset scroll
+                    if input.key_down(egui::Key::Space) {
+                        self.scroll_offset = Pos2::default();
+                    }
+
+                    // get pointer position
+                    (
+                        input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)), 
+                        input.pointer.button_clicked(egui::PointerButton::Primary),
+                        input.key_down(egui::Key::Delete)
+                    )
+                });
+
                 // setup state
-                let mouse_position = ctx.input(|input| input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)));
-                let state = AppState { clip, mouse_position };
+                let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, to_delete: Vec::new() };
 
                 // draw objects
-                self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &state)));
+                self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &mut state)));
+
+                // sync
+                self.selected = state.selected;
+                state.to_delete.iter().for_each(|id| {
+                    let idx = self.objects.objects.iter().position(|o| o.id == *id).unwrap();
+                    self.objects.objects.remove(idx);
+                });
 
                 // finalize draw
                 ui.painter().extend(shapes);
