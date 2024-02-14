@@ -122,8 +122,7 @@ impl Object {
                 });
 
             // deselect
-            println!("Click {} Skip {} Hover {}", state.click, skip_click_check, is_hovering);
-            if state.click && !skip_click_check && !is_hovering { state.selected = None; println!("Setting none!"); }
+            if state.click && !skip_click_check && !is_hovering { state.selected = None; }
             // set position to mouse position
             else if state.dragging && is_hovering {
                 self.dragging = true;
