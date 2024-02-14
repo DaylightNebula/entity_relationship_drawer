@@ -20,7 +20,7 @@ impl App {
         
         // create objects
         let mut me = Self { objects: Objects::default() };
-        let test = me.objects.add(objects::ObjectType::Parameter, 0.0, 0.0);
+        let test = me.objects.add(objects::ObjectType::FunctionParameter, 0.0, 0.0);
         test.name = "Test Me".to_string();
         me
     }

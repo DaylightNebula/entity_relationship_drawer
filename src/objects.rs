@@ -1,4 +1,6 @@
-use egui::{epaint::{CircleShape, PathShape, RectShape}, pos2, Align2, Color32, FontId, Rect, Shape, Stroke, Ui};
+use std::f32::consts::PI;
+
+use egui::{epaint::{PathShape, RectShape}, pos2, Align2, Color32, FontId, Pos2, Rect, Shape, Stroke, Ui};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -176,6 +178,18 @@ impl Object {
                 ],
 
                 ObjectType::Parameter => vec![
+                    Shape::Path(PathShape { 
+                        points: (0 .. 100).map(|idx| {
+                            let perc = idx as f32 / 100.0;
+                            pos2(
+                                f32::cos(perc * 2.0 * PI) * (self.width / 2.0) + center.x, 
+                                f32::sin(perc * 2.0 * PI) * (self.height / 2.0) + center.y
+                            )
+                        }).collect(), 
+                        closed: true, 
+                        fill: Color32::TRANSPARENT, 
+                        stroke: Stroke { width: 2.0, color }
+                    }),
                     Shape::text(
                         fonts, 
                         center, 
@@ -186,16 +200,33 @@ impl Object {
                     )
                 ],
 
-                ObjectType::FunctionParameter => vec![
-                    Shape::text(
+                ObjectType::FunctionParameter => {
+                    let mut result = Vec::new();
+
+                    result.extend(Shape::dashed_line( 
+                        &(0 .. 100).map(|idx| {
+                            let perc = idx as f32 / 100.0;
+                            pos2(
+                                f32::cos(perc * 2.0 * PI) * (self.width / 2.0) + center.x, 
+                                f32::sin(perc * 2.0 * PI) * (self.height / 2.0) + center.y
+                            )
+                        }).collect::<Vec<Pos2>>(), 
+                        Stroke { width: 2.0, color },
+                        5.0,
+                        5.0
+                    ));
+
+                    result.push(Shape::text(
                         fonts, 
                         center, 
                         Align2::CENTER_CENTER, 
                         &self.name, 
                         font_id, 
                         color
-                    )
-                ]
+                    ));
+
+                    result
+                }
             }
         })
     }
