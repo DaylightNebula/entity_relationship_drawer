@@ -19,7 +19,7 @@ impl eframe::App for ScreenshotApp {
             mouse_position: pos2(-100.0, -100.0),
             selected: None,
             dragging: false,
-            to_delete: Vec::new()
+            skip_click_check: false
         };
 
         // draw

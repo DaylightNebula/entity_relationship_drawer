@@ -64,65 +64,8 @@ impl Object {
 
         // if me selected
         if is_selected {
-            let mut skip_click_check = false;
-
-            // draw window
-            egui::Window::new("Edit Element")
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!("ID {:?}", self.id));
-
-                    // if mouse contained, make sure to cancel click checks
-                    if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
-
-                    // select type
-                    let mut combo_changed = false;
-                    egui::ComboBox::from_label("Object Type")
-                        .selected_text(format!("{:?}", self.object_type))
-                        .show_ui(ui, |ui| {
-                            // yes I know doing this twice is kinda hacky
-                            if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
-
-                            // options
-                            let a = ui.selectable_value(&mut self.object_type, ObjectType::Entity, "Entity");
-                            let b = ui.selectable_value(&mut self.object_type, ObjectType::EntityDependent, "Entity Dependent");
-                            let c = ui.selectable_value(&mut self.object_type, ObjectType::Relationship, "Relationship");
-                            let d = ui.selectable_value(&mut self.object_type, ObjectType::RelationshipDependent, "Relationship Dependent");
-                            let e = ui.selectable_value(&mut self.object_type, ObjectType::Parameter, "Parameter");
-                            let f = ui.selectable_value(&mut self.object_type, ObjectType::FunctionParameter, "Functional Parameter");
-                            let g = ui.selectable_value(&mut self.object_type, ObjectType::KeyParameter, "Key Parameter");
-
-                            // update combo changed
-                            if a.clicked() || b.clicked() || c.clicked() || d.clicked() || e.clicked() || f.clicked() || g.clicked() { combo_changed = true; }
-                        });
-
-                    // edit name
-                    let edit = ui.text_edit_singleline(&mut self.name);
-
-                    // do text formatting
-                    if edit.changed() || combo_changed {
-                        self.name = self.name.replace(" ", "_");
-                        match self.object_type {
-                            ObjectType::Entity | 
-                            ObjectType::EntityDependent | 
-                            ObjectType::Relationship | 
-                            ObjectType::RelationshipDependent => {
-                                self.name = self.name.to_uppercase();
-                            },
-                            ObjectType::Parameter |
-                            ObjectType::KeyParameter |
-                            ObjectType::FunctionParameter => {}
-                        }
-                    }
-
-                    // delete button
-                    if ui.button("Delete").clicked() || state.delete {
-                        state.to_delete.push(self.id); 
-                        state.selected = None;
-                    }
-                });
-
             // if necessary, deselect
-            if state.click && !skip_click_check && !is_hovering { state.selected = None; }
+            if state.click && !state.skip_click_check && !is_hovering { state.selected = None; }
             // otherwise, if dragging and hover, mark dragging
             else if state.dragging && is_hovering {
                 self.dragging = true;

@@ -1,8 +1,8 @@
 use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 
-use egui::{pos2, Pos2, Rect, Visuals};
+use egui::{pos2, Color32, Pos2, Rect, Visuals};
 use native_dialog::*;
-use objects::Objects;
+use objects::{ObjectType, Objects};
 
 pub mod objects;
 pub mod screenshot;
@@ -11,7 +11,8 @@ pub struct App {
     pub objects: Objects,
     pub scroll_offset: Pos2,
     pub selected: Option<u32>,
-    pub saved_to: Option<PathBuf>
+    pub saved_to: Option<PathBuf>,
+    pub search: String
 }
 
 #[derive(Debug)]
@@ -23,7 +24,7 @@ pub struct AppState {
     pub click: bool,
     pub delete: bool,
     pub dragging: bool,
-    pub to_delete: Vec<u32>
+    pub skip_click_check: bool
 }
 
 impl App {
@@ -32,7 +33,7 @@ impl App {
         context.egui_ctx.set_visuals(Visuals::light());
         
         // create objects
-        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None }
+        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None, search: String::new() }
     }
 
     pub fn save_as(&mut self) {
@@ -114,6 +115,111 @@ impl eframe::App for App {
             });
         });
 
+        // read input
+        let (mouse_position, click, delete, dragging) = ctx.input(|input| {
+            // middle click drag
+            if input.pointer.is_decidedly_dragging() && input.pointer.button_down(egui::PointerButton::Secondary) {
+                let drag_delta = input.pointer.delta();
+                self.scroll_offset += drag_delta;
+            }
+
+            // reset scroll
+            if input.key_down(egui::Key::Space) {
+                self.scroll_offset = Pos2::default();
+            }
+
+            // get pointer position
+            (
+                input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)), 
+                input.pointer.button_clicked(egui::PointerButton::Primary),
+                input.key_down(egui::Key::Delete),
+                input.pointer.button_down(egui::PointerButton::Primary)
+            )
+        });
+
+        
+        // if something is selected, draw selection edit window
+        let mut skip_click_check = false;
+        if self.selected.is_some() {
+            let found = self.objects.objects.iter().find(|a| a.name == self.search && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
+            let selected = self.objects.objects.iter_mut().find(|a| Some(a.id) == self.selected).unwrap();
+            let mut to_remove: Option<u32> = None;
+
+            // draw window
+            egui::Window::new("Edit Element")
+                .show(ctx, |ui| {
+                    ui.label(format!("ID {:?}", selected.id));
+
+                    // if mouse contained, make sure to cancel click checks
+                    if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
+
+                    // select type
+                    let mut combo_changed = false;
+                    egui::ComboBox::from_label("Object Type")
+                        .selected_text(format!("{:?}", selected.object_type))
+                        .show_ui(ui, |ui| {
+                            // yes I know doing this twice is kinda hacky
+                            if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
+
+                            // options
+                            let a = ui.selectable_value(&mut selected.object_type, ObjectType::Entity, "Entity");
+                            let b = ui.selectable_value(&mut selected.object_type, ObjectType::EntityDependent, "Entity Dependent");
+                            let c = ui.selectable_value(&mut selected.object_type, ObjectType::Relationship, "Relationship");
+                            let d = ui.selectable_value(&mut selected.object_type, ObjectType::RelationshipDependent, "Relationship Dependent");
+                            let e = ui.selectable_value(&mut selected.object_type, ObjectType::Parameter, "Parameter");
+                            let f = ui.selectable_value(&mut selected.object_type, ObjectType::FunctionParameter, "Functional Parameter");
+                            let g = ui.selectable_value(&mut selected.object_type, ObjectType::KeyParameter, "Key Parameter");
+
+                            // update combo changed
+                            if a.clicked() || b.clicked() || c.clicked() || d.clicked() || e.clicked() || f.clicked() || g.clicked() { combo_changed = true; }
+                        });
+
+                    // edit name
+                    let edit = ui.text_edit_singleline(&mut selected.name);
+
+                    // do text formatting
+                    if edit.changed() || combo_changed {
+                        selected.name = selected.name.replace(" ", "_");
+                        match selected.object_type {
+                            ObjectType::Entity | 
+                            ObjectType::EntityDependent | 
+                            ObjectType::Relationship | 
+                            ObjectType::RelationshipDependent => {
+                                selected.name = selected.name.to_uppercase();
+                            },
+                            ObjectType::Parameter |
+                            ObjectType::KeyParameter |
+                            ObjectType::FunctionParameter => {}
+                        }
+                    }
+
+                    // add link search bar
+                    ui.horizontal(|ui| {
+                        // attempt to find object we are searching for
+                        ui.style_mut().visuals.extreme_bg_color = if found.is_some() { Color32::GREEN } else { Color32::RED };
+
+                        ui.text_edit_singleline(&mut self.search);
+                        if ui.button("Link").clicked() {
+                            println!("TODO link with {:?}", self.search);
+                        }
+                    });
+
+                    // delete button
+                    if delete {
+                        to_remove = Some(selected.id);
+                        self.selected = None;
+                    }
+                });
+
+            // remove marked element if necessary
+            if to_remove.is_some() {
+                let idx = self.objects.objects.iter().position(|o| o.id == to_remove.unwrap()).unwrap();
+                self.objects.objects.remove(idx);
+            }
+        } else {
+            if !self.search.is_empty() { self.search = String::new() }
+        }
+
         // create canvas
         egui::CentralPanel::default().show(ctx, |ui| {
             // create frame to draw too
@@ -123,40 +229,18 @@ impl eframe::App for App {
                 ui.set_clip_rect(clip);
                 let mut shapes = vec![];
 
-                // read input
-                let (mouse_position, click, delete, dragging) = ctx.input(|input| {
-                    // middle click drag
-                    if input.pointer.is_decidedly_dragging() && input.pointer.button_down(egui::PointerButton::Secondary) {
-                        let drag_delta = input.pointer.delta();
-                        self.scroll_offset += drag_delta;
-                    }
-
-                    // reset scroll
-                    if input.key_down(egui::Key::Space) {
-                        self.scroll_offset = Pos2::default();
-                    }
-
-                    // get pointer position
-                    (
-                        input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)), 
-                        input.pointer.button_clicked(egui::PointerButton::Primary),
-                        input.key_down(egui::Key::Delete),
-                        input.pointer.button_down(egui::PointerButton::Primary)
-                    )
-                });
-
                 // setup state
-                let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, to_delete: Vec::new() };
+                let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, skip_click_check };
 
                 // draw objects
                 self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &mut state)));
 
                 // sync
                 self.selected = state.selected;
-                state.to_delete.iter().for_each(|id| {
-                    let idx = self.objects.objects.iter().position(|o| o.id == *id).unwrap();
-                    self.objects.objects.remove(idx);
-                });
+                // state.to_delete.iter().for_each(|id| {
+                //     let idx = self.objects.objects.iter().position(|o| o.id == *id).unwrap();
+                //     self.objects.objects.remove(idx);
+                // });
 
                 // finalize draw
                 ui.painter().extend(shapes);
