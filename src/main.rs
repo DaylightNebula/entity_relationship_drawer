@@ -1,5 +1,4 @@
-use egui::{FontFamily, FontId, Rect, TextStyle, Vec2, Visuals};
-use egui_plot::{Legend, Plot, PlotPoint};
+use egui::{pos2, Pos2, Rect, Visuals};
 use objects::Objects;
 
 pub mod objects;
@@ -8,63 +7,27 @@ pub struct App {
     pub objects: Objects
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AppState {
-    pub mouse_position: Vec2,
-    pub vaspect: f32,
-    pub haspect: f32
+    pub clip: Rect,
+    pub mouse_position: Pos2
 }
 
 impl App {
     pub fn from_context(context: &eframe::CreationContext<'_>) -> Self {
         // set visuals
         context.egui_ctx.set_visuals(Visuals::light());
-
-        // set font sizes
-        context.egui_ctx.style_mut(|style| {
-            style.text_styles = [
-                (TextStyle::Heading, FontId::new(30.0, FontFamily::Proportional)),
-                (TextStyle::Body, FontId::new(18.0, FontFamily::Proportional)),
-                (TextStyle::Monospace, FontId::new(14.0, FontFamily::Proportional)),
-                (TextStyle::Button, FontId::new(14.0, FontFamily::Proportional)),
-                (TextStyle::Small, FontId::new(15.0, FontFamily::Proportional)),
-            ].into();
-        });
         
+        // create objects
         let mut me = Self { objects: Objects::default() };
-        let test = me.objects.add(objects::ObjectType::Entity, 0.0, 0.0);
+        let test = me.objects.add(objects::ObjectType::Parameter, 0.0, 0.0);
         test.name = "Test Me".to_string();
         me
     }
-
-    // fn circle(&self) -> Line {
-    //     let n = 512;
-    //     let circle_points: PlotPoints = (0..=n)
-    //         .map(|i| {
-    //             let t = remap(i as f64, 0.0..=(n as f64), 0.0..=TAU);
-    //             let r = 0.05;
-    //             [
-    //                 r * t.cos() + 0.0 as f64,
-    //                 r * t.sin() + 0.0 as f64,
-    //             ]
-    //         })
-    //         .collect();
-    //     Line::new(circle_points)
-    //         .color(Color32::from_rgb(0, 0, 0))
-    //         .style(egui_plot::LineStyle::Dashed { length: 10.0 })
-    // }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        // create app state
-        let mut state = AppState::default();
-        ctx.input(|input| {
-            let rect = input.viewport().inner_rect.unwrap();
-            state.vaspect = rect.height() / rect.width();
-            state.haspect = rect.width() / rect.height();
-        });
-
         // create top bar
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -77,34 +40,23 @@ impl eframe::App for App {
 
         // create canvas
         egui::CentralPanel::default().show(ctx, |ui| {
-            // create plot
-            let _response = Plot::new("drawing")
-                .legend(Legend::default())
-                .show_axes(false)
-                .show_grid(false)
-                .show_x(false)
-                .show_y(false)
-                .allow_zoom(false)
-                .allow_boxed_zoom(false)
-                .data_aspect(1.0)
-                .auto_bounds(false.into())
-                .show(ui, |ui| {
-                    // update app state
-                    let pointer = ui.pointer_coordinate();
-                    if pointer.is_some() {
-                        let pointer = pointer.unwrap();
-                        state.mouse_position.x = pointer.x as f32;
-                        state.mouse_position.y = pointer.y as f32;
-                    }
+            // create frame to draw too
+            egui::Frame::canvas(ui.style()).show(ui, |ui| {
+                // setup ui
+                let (_, clip) = ui.allocate_space(ui.available_size());
+                ui.set_clip_rect(clip);
+                let mut shapes = vec![];
 
-                    // draw objects
-                    self.objects.objects.iter_mut().for_each(|object| {
-                        object.draw(ui, &mut state);
-                    });
+                // setup state
+                let mouse_position = ctx.input(|input| input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)));
+                let state = AppState { clip, mouse_position };
 
-                    // ui.line(self.circle());
-                    // ui.text(Text::new([0.0, 0.0].into(), "Test Text").color(Color32::from_rgb(0, 0, 0)));
-                });
+                // draw objects
+                self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &state)));
+
+                // finalize draw
+                ui.painter().extend(shapes);
+            });
         });
     }
 }
