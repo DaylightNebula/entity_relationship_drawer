@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 
-use drawer::draw_object;
+use drawer::{draw_link, draw_object};
 use egui::{pos2, Color32, Pos2, Rect, Visuals};
 use native_dialog::*;
 use objects::{Link, ObjectType, Objects};
@@ -216,8 +216,14 @@ impl eframe::App for App {
 
             // remove marked element if necessary
             if to_remove.is_some() {
+                // remove original object
                 let idx = self.objects.objects.iter().position(|o| o.id == to_remove.unwrap()).unwrap();
-                self.objects.objects.remove(idx);
+                let object = self.objects.objects.remove(idx);
+
+                // remove links
+                self.objects.links.iter().enumerate()
+                    .filter(|(_, a)| a.a == object.id || a.b == object.id)
+                    .for_each(|(a, _)| { self.objects.objects.remove(a); });
             }
 
             if link {
@@ -241,6 +247,11 @@ impl eframe::App for App {
 
                 // draw objects
                 self.objects.objects.iter_mut().for_each(|obj| shapes.extend(draw_object(obj, ui, &mut state)));
+                self.objects.links.iter().for_each(|link| {
+                    let a = self.objects.objects.iter().find(|a| a.id == link.a).unwrap();
+                    let b = self.objects.objects.iter().find(|a| a.id == link.b).unwrap();
+                    shapes.extend(draw_link(a, b, ui, &mut state));
+                });
 
                 // sync
                 self.selected = state.selected;
