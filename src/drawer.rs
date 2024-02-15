@@ -26,6 +26,7 @@ pub fn draw_link(
     ]
 }
 
+// gets a point around an object by an angle
 pub fn get_point_around_object(
     object: &Object,
     rad: f32,
