@@ -1,7 +1,7 @@
 use egui::{pos2, Event, Pos2, Rect, ViewportCommand, Visuals};
 use native_dialog::FileDialog;
 
-use crate::{objects::Objects, AppState};
+use crate::{drawer::draw_object, objects::Objects, AppState};
 
 pub struct ScreenshotApp {
     objects: Objects,
@@ -26,7 +26,7 @@ impl eframe::App for ScreenshotApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let mut shapes = vec![];
             self.objects.objects.iter_mut().for_each(|object| {
-                shapes.extend(object.draw(ui, state));
+                shapes.extend(draw_object(object, ui, state));
             });
             ui.painter().extend(shapes);
         });

@@ -1,9 +1,11 @@
 use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 
+use drawer::draw_object;
 use egui::{pos2, Color32, Pos2, Rect, Visuals};
 use native_dialog::*;
-use objects::{ObjectType, Objects};
+use objects::{Link, ObjectType, Objects};
 
+pub mod drawer;
 pub mod objects;
 pub mod screenshot;
 
@@ -144,6 +146,7 @@ impl eframe::App for App {
             let found = self.objects.objects.iter().find(|a| a.name == self.search && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
             let selected = self.objects.objects.iter_mut().find(|a| Some(a.id) == self.selected).unwrap();
             let mut to_remove: Option<u32> = None;
+            let mut link = false;
 
             // draw window
             egui::Window::new("Edit Element")
@@ -199,8 +202,8 @@ impl eframe::App for App {
                         ui.style_mut().visuals.extreme_bg_color = if found.is_some() { Color32::GREEN } else { Color32::RED };
 
                         ui.text_edit_singleline(&mut self.search);
-                        if ui.button("Link").clicked() {
-                            println!("TODO link with {:?}", self.search);
+                        if ui.button("Link").clicked() && found.is_some() {
+                            link = true;
                         }
                     });
 
@@ -215,6 +218,10 @@ impl eframe::App for App {
             if to_remove.is_some() {
                 let idx = self.objects.objects.iter().position(|o| o.id == to_remove.unwrap()).unwrap();
                 self.objects.objects.remove(idx);
+            }
+
+            if link {
+                self.objects.links.push(Link { a: self.selected.unwrap(), b: found.unwrap().id });
             }
         } else {
             if !self.search.is_empty() { self.search = String::new() }
@@ -233,14 +240,10 @@ impl eframe::App for App {
                 let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, skip_click_check };
 
                 // draw objects
-                self.objects.objects.iter_mut().for_each(|obj| shapes.extend(obj.draw(ui, &mut state)));
+                self.objects.objects.iter_mut().for_each(|obj| shapes.extend(draw_object(obj, ui, &mut state)));
 
                 // sync
                 self.selected = state.selected;
-                // state.to_delete.iter().for_each(|id| {
-                //     let idx = self.objects.objects.iter().position(|o| o.id == *id).unwrap();
-                //     self.objects.objects.remove(idx);
-                // });
 
                 // finalize draw
                 ui.painter().extend(shapes);
