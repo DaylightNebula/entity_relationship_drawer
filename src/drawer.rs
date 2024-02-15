@@ -4,26 +4,57 @@ use egui::{epaint::{PathShape, RectShape}, pos2, Align2, Color32, FontId, Pos2, 
 
 use crate::{objects::{Object, ObjectType}, AppState};
 
+const DOUBLE_OFFSET: f32 = 0.05;
 pub fn draw_link(
     a: &Object,
     b: &Object,
     _ui: &mut Ui,
     state: &mut AppState
 ) -> Vec<Shape> {
+    let use_double = a.object_type.use_double_link() || b.object_type.use_double_link();
+
     // get some angles
     let a_to_b = f32::atan2(a.y - b.y, a.x - b.x);
     let b_to_a = f32::atan2(b.y - a.y, b.x - a.x);
 
+    println!("{} {} {} {}", a_to_b - DOUBLE_OFFSET, a_to_b + DOUBLE_OFFSET, b_to_a - DOUBLE_OFFSET, b_to_a + DOUBLE_OFFSET);
+
+    // line
+    let primary = vec![
+            get_point_around_object(a, b_to_a, state),
+            get_point_around_object(b, a_to_b, state)
+        ];
+        
+
+    //     stroke: Stroke { width: 2.0, color: Color32::BLACK }
+    // };
+
     // 
-    vec![
-        Shape::LineSegment {
-            points: [
-                get_point_around_object(a, b_to_a, state),
-                get_point_around_object(b, a_to_b, state)
-            ],
-            stroke: Stroke { width: 2.0, color: Color32::BLACK }
-        }
-    ]
+    match use_double {
+        true => {
+            let offset = pos2(
+                (a_to_b - (PI / 4.0)).cos() * 3.0,
+                (a_to_b - (PI / 4.0)).sin() * 3.0
+            );
+            vec![
+                Shape::line(
+                    vec![
+                        pos2(primary[0].x + offset.x, primary[0].y + offset.y),
+                        pos2(primary[1].x + offset.x, primary[1].y + offset.y),
+                    ], 
+                    Stroke { width: 2.0, color: Color32::BLACK }
+                ),
+                Shape::line(
+                    vec![
+                        pos2(primary[0].x - offset.x, primary[0].y - offset.y),
+                        pos2(primary[1].x - offset.x, primary[1].y - offset.y),
+                    ], 
+                    Stroke { width: 2.0, color: Color32::BLACK }
+                ),
+            ]
+        },
+        false => vec![Shape::line(primary, Stroke { width: 2.0, color: Color32::BLACK })]
+    }
 }
 
 // gets a point around an object by an angle
@@ -127,7 +158,7 @@ pub fn draw_object(
                         max: pos2(object.width / 2.0 + center.x, object.height / 2.0 + center.y)
                     },
                     rounding: 0.0.into(),
-                    fill: Color32::TRANSPARENT, 
+                    fill: Color32::WHITE, 
                     stroke: Stroke { width: 2.0, color }, 
                     fill_texture_id: egui::TextureId::default(), 
                     uv: Rect { min: pos2(0.0, 0.0), max: pos2(1.0, 1.0) }
@@ -149,7 +180,7 @@ pub fn draw_object(
                         max: pos2(object.width / 2.0 + center.x + 5.0, object.height / 2.0 + center.y + 5.0) 
                     },
                     rounding: 0.0.into(),
-                    fill: Color32::TRANSPARENT, 
+                    fill: Color32::WHITE, 
                     stroke: Stroke { width: 2.0, color }, 
                     fill_texture_id: egui::TextureId::default(), 
                     uv: Rect { min: pos2(0.0, 0.0), max: pos2(1.0, 1.0) }
@@ -184,7 +215,7 @@ pub fn draw_object(
                         pos2(object.width / 2.0 + center.x, center.y)
                     ], 
                     closed: true, 
-                    fill: Color32::TRANSPARENT, 
+                    fill: Color32::WHITE, 
                     stroke: Stroke { width: 2.0, color }
                 }),
                 Shape::text(
@@ -200,21 +231,21 @@ pub fn draw_object(
             ObjectType::RelationshipDependent => vec![
                 Shape::Path(PathShape { 
                     points: vec![
-                        pos2(center.x, -object.width / 2.0 + center.y),
-                        pos2(-object.width / 2.0 + center.x, center.y),
-                        pos2(center.x, object.width / 2.0 + center.y),
-                        pos2(object.width / 2.0 + center.x, center.y)
-                    ], 
-                    closed: true, 
-                    fill: Color32::TRANSPARENT, 
-                    stroke: Stroke { width: 2.0, color }
-                }),
-                Shape::Path(PathShape { 
-                    points: vec![
                         pos2(center.x, -object.width / 2.0 + center.y - 5.0),
                         pos2(-object.width / 2.0 + center.x - 5.0, center.y),
                         pos2(center.x, object.width / 2.0 + center.y + 5.0),
                         pos2(object.width / 2.0 + center.x + 5.0, center.y)
+                    ], 
+                    closed: true, 
+                    fill: Color32::WHITE, 
+                    stroke: Stroke { width: 2.0, color }
+                }),
+                Shape::Path(PathShape { 
+                    points: vec![
+                        pos2(center.x, -object.width / 2.0 + center.y),
+                        pos2(-object.width / 2.0 + center.x, center.y),
+                        pos2(center.x, object.width / 2.0 + center.y),
+                        pos2(object.width / 2.0 + center.x, center.y)
                     ], 
                     closed: true, 
                     fill: Color32::TRANSPARENT, 
@@ -240,7 +271,7 @@ pub fn draw_object(
                         )
                     }).collect(), 
                     closed: true, 
-                    fill: Color32::TRANSPARENT, 
+                    fill: Color32::WHITE, 
                     stroke: Stroke { width: 2.0, color }
                 }),
                 Shape::text(
@@ -291,7 +322,7 @@ pub fn draw_object(
                         )
                     }).collect(), 
                     closed: true, 
-                    fill: Color32::TRANSPARENT, 
+                    fill: Color32::WHITE, 
                     stroke: Stroke { width: 2.0, color }
                 }),
                 Shape::LineSegment { 

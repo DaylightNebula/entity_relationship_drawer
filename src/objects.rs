@@ -56,6 +56,20 @@ pub enum ObjectType {
     KeyParameter
 }
 
+impl ObjectType {
+    pub fn use_double_link(&self) -> bool {
+        match self {
+            ObjectType::Entity => false,
+            ObjectType::Relationship => false,
+            ObjectType::Parameter => false,
+            ObjectType::EntityDependent => true,
+            ObjectType::RelationshipDependent => true,
+            ObjectType::FunctionParameter => false,
+            ObjectType::KeyParameter => false
+        }
+    }
+}
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Link {
     pub a: u32,
