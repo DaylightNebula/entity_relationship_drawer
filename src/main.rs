@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 use drawer::{draw_link, draw_object};
 use egui::{pos2, Color32, Pos2, Rect, Visuals};
 use native_dialog::*;
-use objects::{Link, ObjectType, Objects};
+use objects::{Link, Object, ObjectType, Objects};
 
 pub mod drawer;
 pub mod objects;
@@ -144,8 +144,17 @@ impl eframe::App for App {
         let mut skip_click_check = false;
         if self.selected.is_some() {
             let found = self.objects.objects.iter().find(|a| a.name == self.search && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
+            let connected_to = self.objects.links.iter()
+                .filter(|a| Some(a.a) == self.selected || Some(a.b) == self.selected)
+                .collect::<Vec<&Link>>();
+            let connected_to = connected_to.iter()
+                .map(|link| {
+                    self.objects.objects.clone().iter().find(|a| (a.id == link.a || a.id == link.b) && Some(a.id) != self.selected).unwrap().clone()
+                })
+                .collect::<Vec<Object>>();
             let selected = self.objects.objects.iter_mut().find(|a| Some(a.id) == self.selected).unwrap();
             let mut to_remove: Option<u32> = None;
+            let mut remove_link: Option<(u32, u32)> = None;
             let mut link = false;
 
             // draw window
@@ -196,6 +205,19 @@ impl eframe::App for App {
                         }
                     }
 
+                    // add links
+                    ui.collapsing("Links", |ui| {
+                        connected_to.iter().for_each(|other| {
+                            ui.horizontal(|ui| {
+                                // let other = self.objects.objects.iter().find(|a| a.id == other.a || a.id == other.b).unwrap();
+                                ui.label(format!("-> {}", other.name));
+                                if ui.button("Remove").clicked() {
+                                    remove_link = Some((selected.id, other.id));
+                                }
+                            });
+                        });
+                    });
+
                     // add link search bar
                     ui.horizontal(|ui| {
                         // attempt to find object we are searching for
@@ -224,6 +246,13 @@ impl eframe::App for App {
                 self.objects.links.iter().enumerate()
                     .filter(|(_, a)| a.a == object.id || a.b == object.id)
                     .for_each(|(a, _)| { self.objects.objects.remove(a); });
+            }
+
+            if remove_link.is_some() {
+                let (a, b) = remove_link.unwrap();
+                let idx = self.objects.links.iter().position(|link| (link.a == a || link.a == b) && (link.b == a || link.b == b));
+                println!("Removing at {:?}", idx);
+                if idx.is_some() { self.objects.links.remove(idx.unwrap()); }
             }
 
             if link {

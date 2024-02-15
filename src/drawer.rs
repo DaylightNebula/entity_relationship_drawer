@@ -4,7 +4,6 @@ use egui::{epaint::{PathShape, RectShape}, pos2, Align2, Color32, FontId, Pos2, 
 
 use crate::{objects::{Object, ObjectType}, AppState};
 
-const DOUBLE_OFFSET: f32 = 0.05;
 pub fn draw_link(
     a: &Object,
     b: &Object,
@@ -17,19 +16,12 @@ pub fn draw_link(
     let a_to_b = f32::atan2(a.y - b.y, a.x - b.x);
     let b_to_a = f32::atan2(b.y - a.y, b.x - a.x);
 
-    println!("{} {} {} {}", a_to_b - DOUBLE_OFFSET, a_to_b + DOUBLE_OFFSET, b_to_a - DOUBLE_OFFSET, b_to_a + DOUBLE_OFFSET);
-
     // line
     let primary = vec![
-            get_point_around_object(a, b_to_a, state),
-            get_point_around_object(b, a_to_b, state)
-        ];
+        get_point_around_object(a, b_to_a, state),
+        get_point_around_object(b, a_to_b, state)
+    ];
         
-
-    //     stroke: Stroke { width: 2.0, color: Color32::BLACK }
-    // };
-
-    // 
     match use_double {
         true => {
             let offset = pos2(
