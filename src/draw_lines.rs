@@ -2,10 +2,11 @@ use std::f32::consts::PI;
 
 use egui::{pos2, vec2, Align2, Color32, FontId, Shape, Stroke, Ui, Vec2};
 
-use crate::{objects::{CardType, Object, ObjectType}, AppState};
+use crate::{objects::{CardType, Object, ObjectType, Polymorph}, AppState};
 
 pub fn draw_link(
-    ids: &mut Vec<u32>,
+    card_ids: &mut Vec<u32>,
+    union_ids: &mut Vec<u32>,
     a: &Object,
     b: &Object,
     ui: &mut Ui,
@@ -80,7 +81,7 @@ pub fn draw_link(
     if let Some((card, card_id)) = card_type {
         let font_id = FontId { size: 14.0, family: egui::FontFamily::Monospace };
 
-        let card = if !ids.contains(&card_id) {
+        let card = if !card_ids.contains(&card_id) {
             match card {
                 CardType::OneToOne => "1",
                 CardType::OneToMany => "1",
@@ -95,7 +96,7 @@ pub fn draw_link(
                 CardType::ManyToMany => "N"
             }
         };
-        ids.push(card_id);
+        card_ids.push(card_id);
 
         // draw
         ui.fonts(|fonts| {
@@ -132,6 +133,92 @@ pub fn draw_link(
                 Color32::BLACK
             ));
         });
+    }
+
+    // draw unions if necessary
+    let mut union_info: Option<(u32, bool, f32)> = None;
+    match &a.object_type {
+        ObjectType::Polymorph { poly } => {
+            union_info = Some((
+                a.id,
+                matches!(poly, Polymorph::Union),
+                a_to_b
+            ));
+        }
+        _ => {}
+    }
+    match &b.object_type {
+        ObjectType::Polymorph { poly } => {
+            union_info = Some((
+                b.id,
+                matches!(poly, Polymorph::Union),
+                b_to_a
+            ));
+        }
+        _ => {}
+    }
+    if let Some((union_id, invert, direction)) = union_info {
+        let is_first = union_ids.contains(&union_id);
+        union_ids.push(union_id);
+        let draw_u = if invert { !is_first } else { is_first };
+
+        // draw U
+        if draw_u {
+            // calculate offset
+            let offset_line = [
+                f32::cos(direction) * 8.0,
+                f32::sin(direction) * 8.0
+            ];
+
+            // draw side lines
+            shapes.push(Shape::LineSegment { 
+                points: [
+                    [
+                        center_a.x * 8.0 + offset_line[0] + center.x,
+                        center_a.y * 8.0 + offset_line[1] + center.y,
+                    ].into(),
+                    [
+                        center_a.x * 8.0 + -offset_line[0] + center.x,
+                        center_a.y * 8.0 + -offset_line[1] + center.y,
+                    ].into(),
+                ], 
+                stroke: Stroke { width: 2.0, color: Color32::BLACK } 
+            });
+            shapes.push(Shape::LineSegment { 
+                points: [
+                    [
+                        center_b.x * 8.0 + offset_line[0] + center.x,
+                        center_b.y * 8.0 + offset_line[1] + center.y,
+                    ].into(),
+                    [
+                        center_b.x * 8.0 + -offset_line[0] + center.x,
+                        center_b.y * 8.0 + -offset_line[1] + center.y,
+                    ].into(),
+                ], 
+                stroke: Stroke { width: 2.0, color: Color32::BLACK } 
+            });
+
+            // draw arc
+            shapes.push(Shape::QuadraticBezier(egui::epaint::QuadraticBezierShape { 
+                points: [
+                    [
+                        center_b.x * 8.0 + -offset_line[0] + center.x,
+                        center_b.y * 8.0 + -offset_line[1] + center.y,
+                    ].into(),
+                    [
+                        offset_line[0] * -2.0 + center.x,
+                        offset_line[1] * -2.0 + center.y
+                    ].into(),
+                    [
+                        center_a.x * 8.0 + -offset_line[0] + center.x,
+                        center_a.y * 8.0 + -offset_line[1] + center.y,
+                    ].into(),
+                ],
+                closed: false,
+                fill: Color32::TRANSPARENT, 
+                stroke: Stroke { width: 2.0, color: Color32::BLACK }
+            }));
+        }
     }
 
     shapes

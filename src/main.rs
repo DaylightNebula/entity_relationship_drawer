@@ -358,12 +358,13 @@ impl eframe::App for App {
                 let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, skip_click_check };
 
                 // draw objects
-                let mut ids = Vec::new();
+                let mut card_ids = Vec::new();
+                let mut union_ids = Vec::new();
                 self.objects.objects.iter_mut().for_each(|obj| shapes.extend(draw_object(obj, ui, &mut state)));
                 self.objects.links.iter().for_each(|link| {
                     let a = self.objects.objects.iter().find(|a| a.id == link.a).unwrap();
                     let b = self.objects.objects.iter().find(|a| a.id == link.b).unwrap();
-                    shapes.extend(draw_link(&mut ids, a, b, ui, &mut state, &link.minmax));
+                    shapes.extend(draw_link(&mut card_ids, &mut union_ids, a, b, ui, &mut state, &link.minmax));
                 });
 
                 // sync
