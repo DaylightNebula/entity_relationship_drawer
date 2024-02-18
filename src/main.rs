@@ -16,7 +16,8 @@ pub struct App {
     pub scroll_offset: Pos2,
     pub selected: Option<u32>,
     pub saved_to: Option<PathBuf>,
-    pub search: String
+    pub search: String,
+    pub clip: Rect
 }
 
 #[derive(Debug)]
@@ -37,7 +38,7 @@ impl App {
         context.egui_ctx.set_visuals(Visuals::light());
         
         // create objects
-        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None, search: String::new() }
+        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None, search: String::new(), clip: Rect { min: Pos2::default(), max: Pos2::default() } }
     }
 
     pub fn save_as(&mut self) {
@@ -121,10 +122,21 @@ impl eframe::App for App {
 
         // read input
         let (mouse_position, click, delete, dragging) = ctx.input(|input| {
+            let mouse_position = input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0));
+
             // middle click drag
             if input.pointer.is_decidedly_dragging() && input.pointer.button_down(egui::PointerButton::Secondary) {
-                let drag_delta = input.pointer.delta();
-                self.scroll_offset += drag_delta;
+                // let drag_delta = input.pointer.delta();
+                // self.scroll_offset += drag_delta;
+            }
+
+            if self.selected.is_none() && input.key_released(egui::Key::Tab) {
+                let item = self.objects.add(
+                    objects::ObjectType::Entity, 
+                    -self.clip.width() / 2.0 - 10.0 + mouse_position.x - self.scroll_offset.x, 
+                    -self.clip.height() / 2.0 - 30.0 + mouse_position.y - self.scroll_offset.y
+                );
+                self.selected = Some(item.id);
             }
 
             // reset scroll
@@ -134,7 +146,7 @@ impl eframe::App for App {
 
             // get pointer position
             (
-                input.pointer.interact_pos().unwrap_or(pos2(0.0, 0.0)), 
+                mouse_position, 
                 input.pointer.button_clicked(egui::PointerButton::Primary),
                 input.key_down(egui::Key::Delete),
                 input.pointer.button_down(egui::PointerButton::Primary)
@@ -320,6 +332,7 @@ impl eframe::App for App {
                 // setup ui
                 let (_, clip) = ui.allocate_space(ui.available_size());
                 ui.set_clip_rect(clip);
+                self.clip = clip;
                 let mut shapes = vec![];
 
                 // setup state

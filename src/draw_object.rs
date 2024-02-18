@@ -33,8 +33,8 @@ pub fn draw_object(
 
         // do drag
         if object.dragging {
-            object.x = -state.clip.width() / 2.0 + state.mouse_position.x;
-            object.y = -state.clip.height() / 2.0 - (object.height) + state.mouse_position.y;
+            object.x = -state.clip.width() / 2.0 + state.mouse_position.x - state.scroll_offset.x;
+            object.y = -state.clip.height() / 2.0 - (object.height) + state.mouse_position.y - state.scroll_offset.y;
         }
     } 
     // select me if not already selected but hovered
