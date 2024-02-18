@@ -1,7 +1,7 @@
 use egui::{pos2, Event, Pos2, Rect, ViewportCommand, Visuals};
 use native_dialog::FileDialog;
 
-use crate::{drawer::draw_object, objects::Objects, AppState};
+use crate::{draw_object::draw_object, objects::Objects, AppState};
 
 pub struct ScreenshotApp {
     objects: Objects,

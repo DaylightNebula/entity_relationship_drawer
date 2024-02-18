@@ -1,11 +1,13 @@
 use std::{fs::File, io::Write, path::PathBuf, process::Command, str::FromStr};
 
-use drawer::{draw_link, draw_object};
+use draw_lines::draw_link;
+use draw_object::draw_object;
 use egui::{pos2, Color32, Pos2, Rect, Visuals};
 use native_dialog::*;
-use objects::{Link, Object, ObjectType, Objects};
+use objects::{CardType, Link, Object, ObjectType, Objects};
 
-pub mod drawer;
+pub mod draw_lines;
+pub mod draw_object;
 pub mod objects;
 pub mod screenshot;
 
@@ -143,7 +145,7 @@ impl eframe::App for App {
         // if something is selected, draw selection edit window
         let mut skip_click_check = false;
         if self.selected.is_some() {
-            let found = self.objects.objects.iter().find(|a| a.name == self.search && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
+            let found = self.objects.objects.iter().find(|a| a.name.eq_ignore_ascii_case(self.search.as_str()) && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
             let connected_to = self.objects.links.iter()
                 .filter(|a| Some(a.a) == self.selected || Some(a.b) == self.selected)
                 .collect::<Vec<&Link>>();
@@ -174,13 +176,41 @@ impl eframe::App for App {
                             if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
 
                             // options
-                            let a = ui.selectable_value(&mut selected.object_type, ObjectType::Entity, "Entity");
-                            let b = ui.selectable_value(&mut selected.object_type, ObjectType::EntityDependent, "Entity Dependent");
-                            let c = ui.selectable_value(&mut selected.object_type, ObjectType::Relationship, "Relationship");
-                            let d = ui.selectable_value(&mut selected.object_type, ObjectType::RelationshipDependent, "Relationship Dependent");
-                            let e = ui.selectable_value(&mut selected.object_type, ObjectType::Parameter, "Parameter");
-                            let f = ui.selectable_value(&mut selected.object_type, ObjectType::FunctionParameter, "Functional Parameter");
-                            let g = ui.selectable_value(&mut selected.object_type, ObjectType::KeyParameter, "Key Parameter");
+                            let a = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::Entity, 
+                                "Entity"
+                            );
+                            let b = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::EntityDependent, 
+                                "Entity Dependent"
+                            );
+                            let c = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::Relationship { card: objects::CardType::OneToOne }, 
+                                "Relationship"
+                            );
+                            let d = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::RelationshipDependent { card: objects::CardType::OneToOne }, 
+                                "Relationship Dependent"
+                            );
+                            let e = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::Parameter, 
+                                "Parameter"
+                            );
+                            let f = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::FunctionParameter, 
+                                "Functional Parameter"
+                            );
+                            let g = ui.selectable_value(
+                                &mut selected.object_type, 
+                                ObjectType::KeyParameter, 
+                                "Key Parameter"
+                            );
 
                             // update combo changed
                             if a.clicked() || b.clicked() || c.clicked() || d.clicked() || e.clicked() || f.clicked() || g.clicked() { combo_changed = true; }
@@ -189,14 +219,35 @@ impl eframe::App for App {
                     // edit name
                     let edit = ui.text_edit_singleline(&mut selected.name);
 
+                    match &mut selected.object_type {
+                        ObjectType::Relationship { card } |
+                        ObjectType::RelationshipDependent { card } => {
+                            egui::ComboBox::from_label("Card Type")
+                                .selected_text(format!("{:?}", card))
+                                .show_ui(ui, |ui| {
+                                    // yes I know doing this twice is kinda hacky
+                                    if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
+
+                                    let a = ui.selectable_value(card, CardType::OneToOne, "One To One");
+                                    let b = ui.selectable_value(card, CardType::OneToMany, "One To Many");
+                                    let c = ui.selectable_value(card, CardType::ManyToOne, "Many To One");
+                                    let d = ui.selectable_value(card, CardType::ManyToMany, "Many To Many");
+
+                                    // update combo changed
+                                    if a.clicked() || b.clicked() || c.clicked() || d.clicked() { combo_changed = true; }
+                                });
+                        },
+                        _ => {}
+                    }
+
                     // do text formatting
                     if edit.changed() || combo_changed {
                         selected.name = selected.name.replace(" ", "_");
                         match selected.object_type {
                             ObjectType::Entity | 
                             ObjectType::EntityDependent | 
-                            ObjectType::Relationship | 
-                            ObjectType::RelationshipDependent => {
+                            ObjectType::Relationship { .. } | 
+                            ObjectType::RelationshipDependent { .. } => {
                                 selected.name = selected.name.to_uppercase();
                             },
                             ObjectType::Parameter |
@@ -251,12 +302,11 @@ impl eframe::App for App {
             if remove_link.is_some() {
                 let (a, b) = remove_link.unwrap();
                 let idx = self.objects.links.iter().position(|link| (link.a == a || link.a == b) && (link.b == a || link.b == b));
-                println!("Removing at {:?}", idx);
                 if idx.is_some() { self.objects.links.remove(idx.unwrap()); }
             }
 
             if link {
-                self.objects.links.push(Link { a: self.selected.unwrap(), b: found.unwrap().id });
+                self.objects.links.push(Link { a: self.selected.unwrap(), b: found.unwrap().id, minmax: String::new() });
             }
         } else {
             if !self.search.is_empty() { self.search = String::new() }
@@ -275,11 +325,12 @@ impl eframe::App for App {
                 let mut state = AppState { clip, mouse_position, scroll_offset: self.scroll_offset, selected: self.selected, click, delete, dragging, skip_click_check };
 
                 // draw objects
+                let mut ids = Vec::new();
                 self.objects.objects.iter_mut().for_each(|obj| shapes.extend(draw_object(obj, ui, &mut state)));
                 self.objects.links.iter().for_each(|link| {
                     let a = self.objects.objects.iter().find(|a| a.id == link.a).unwrap();
                     let b = self.objects.objects.iter().find(|a| a.id == link.b).unwrap();
-                    shapes.extend(draw_link(a, b, ui, &mut state));
+                    shapes.extend(draw_link(&mut ids, a, b, ui, &mut state));
                 });
 
                 // sync

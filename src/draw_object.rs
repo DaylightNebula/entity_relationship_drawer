@@ -4,99 +4,6 @@ use egui::{epaint::{PathShape, RectShape}, pos2, Align2, Color32, FontId, Pos2, 
 
 use crate::{objects::{Object, ObjectType}, AppState};
 
-pub fn draw_link(
-    a: &Object,
-    b: &Object,
-    _ui: &mut Ui,
-    state: &mut AppState
-) -> Vec<Shape> {
-    let use_double = a.object_type.use_double_link() || b.object_type.use_double_link();
-
-    // get some angles
-    let a_to_b = f32::atan2(a.y - b.y, a.x - b.x);
-    let b_to_a = f32::atan2(b.y - a.y, b.x - a.x);
-
-    // line
-    let primary = vec![
-        get_point_around_object(a, b_to_a, state),
-        get_point_around_object(b, a_to_b, state)
-    ];
-        
-    match use_double {
-        true => {
-            let offset = pos2(
-                (a_to_b - (PI / 4.0)).cos() * 3.0,
-                (a_to_b - (PI / 4.0)).sin() * 3.0
-            );
-            vec![
-                Shape::line(
-                    vec![
-                        pos2(primary[0].x + offset.x, primary[0].y + offset.y),
-                        pos2(primary[1].x + offset.x, primary[1].y + offset.y),
-                    ], 
-                    Stroke { width: 2.0, color: Color32::BLACK }
-                ),
-                Shape::line(
-                    vec![
-                        pos2(primary[0].x - offset.x, primary[0].y - offset.y),
-                        pos2(primary[1].x - offset.x, primary[1].y - offset.y),
-                    ], 
-                    Stroke { width: 2.0, color: Color32::BLACK }
-                ),
-            ]
-        },
-        false => vec![Shape::line(primary, Stroke { width: 2.0, color: Color32::BLACK })]
-    }
-}
-
-// gets a point around an object by an angle
-pub fn get_point_around_object(
-    object: &Object,
-    rad: f32,
-    state: &AppState
-) -> Pos2 {
-    let center = pos2(
-        state.clip.width() / 2.0 + state.clip.min.x + object.x + state.scroll_offset.x,
-        state.clip.height() / 2.0 + state.clip.min.y + object.y + state.scroll_offset.y
-    );
-
-    match object.object_type {
-        // get edge on entity square
-        ObjectType::Entity |
-        ObjectType::EntityDependent => {
-            let direction = pos2(rad.cos() * 10.0, rad.sin() * 10.0);
-            let a_mult = (object.width / 2.0) / direction.x;
-            let b_mult = (object.height / 2.0) / direction.y;
-            let mult = (a_mult.abs()).min(b_mult.abs());
-            pos2(
-                direction.x * mult + center.x,
-                direction.y * mult + center.y
-            )
-        },
-
-        // get edge on relationship diamond
-        ObjectType::Relationship |
-        ObjectType::RelationshipDependent => {
-            let x_part = (-rad.abs() + (PI / 2.0)) / (PI / 2.0);
-            let a_part = rad / (PI / 2.0);
-            let y_part = if a_part >= 0.0 { -(-a_part + 1.0).abs() + 1.0 } else { (-(a_part + 1.0).abs() + 1.0) * -1.0 };
-            pos2(
-                (object.width / 2.0) * x_part + center.x,
-                (object.width / 2.0) * y_part + center.y
-            )
-        },
-
-        // get edge on parameter circle
-        ObjectType::Parameter |
-        ObjectType::FunctionParameter |
-        ObjectType::KeyParameter => Pos2 { 
-            x: rad.cos() * (object.width / 2.0) + center.x, 
-            y: rad.sin() * (object.height / 2.0) + center.y
-        },
-    }
-    
-}
-
 pub fn draw_object(
     object: &mut Object,
     ui: &mut Ui,
@@ -198,7 +105,7 @@ pub fn draw_object(
                 )
             ],
 
-            ObjectType::Relationship => vec![
+            ObjectType::Relationship { .. } => vec![
                 Shape::Path(PathShape { 
                     points: vec![
                         pos2(center.x, -object.width / 2.0 + center.y),
@@ -220,7 +127,7 @@ pub fn draw_object(
                 )
             ],
 
-            ObjectType::RelationshipDependent => vec![
+            ObjectType::RelationshipDependent { .. } => vec![
                 Shape::Path(PathShape { 
                     points: vec![
                         pos2(center.x, -object.width / 2.0 + center.y - 5.0),

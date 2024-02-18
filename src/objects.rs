@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Objects {
     pub objects: Vec<Object>,
     pub links: Vec<Link>,
@@ -25,7 +26,7 @@ impl Objects {
     }
 
     // creates a link between A and B
-    pub fn link(&mut self, a: u32, b: u32) { self.links.push(Link { a, b }); }
+    pub fn link(&mut self, a: u32, b: u32) { self.links.push(Link { a, b, minmax: String::new() }); }
 
     // gets a link with the given node
     pub fn get_link(&self, node: u32) -> Option<&Link> { self.links.iter().find(|a| a.a == node || a.b == node) }
@@ -33,6 +34,7 @@ impl Objects {
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Object {
     pub id: u32,
     pub x: f32,
@@ -48,22 +50,31 @@ pub struct Object {
 pub enum ObjectType {
     #[default]
     Entity,
-    Relationship,
+    Relationship { card: CardType },
     Parameter,
     EntityDependent,
-    RelationshipDependent,
+    RelationshipDependent { card: CardType },
     FunctionParameter,
     KeyParameter
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub enum CardType {
+    #[default]
+    OneToOne,
+    OneToMany,
+    ManyToOne,
+    ManyToMany
 }
 
 impl ObjectType {
     pub fn use_double_link(&self) -> bool {
         match self {
             ObjectType::Entity => false,
-            ObjectType::Relationship => false,
+            ObjectType::Relationship { .. } => false,
             ObjectType::Parameter => false,
             ObjectType::EntityDependent => true,
-            ObjectType::RelationshipDependent => true,
+            ObjectType::RelationshipDependent { .. } => true,
             ObjectType::FunctionParameter => false,
             ObjectType::KeyParameter => false
         }
@@ -71,7 +82,9 @@ impl ObjectType {
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Link {
     pub a: u32,
-    pub b: u32
+    pub b: u32,
+    pub minmax: String
 }
