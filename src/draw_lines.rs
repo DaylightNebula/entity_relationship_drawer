@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use egui::{epaint::{CircleShape, TextShape}, pos2, vec2, Align2, Color32, FontId, Shape, Stroke, Ui, Vec2};
+use egui::{pos2, vec2, Align2, Color32, FontId, Shape, Stroke, Ui, Vec2};
 
 use crate::{objects::{CardType, Object, ObjectType}, AppState};
 
@@ -9,7 +9,8 @@ pub fn draw_link(
     a: &Object,
     b: &Object,
     ui: &mut Ui,
-    state: &mut AppState
+    state: &mut AppState,
+    minmax: &String
 ) -> Vec<Shape> {
     let use_double = a.object_type.use_double_link() || b.object_type.use_double_link();
 
@@ -77,6 +78,8 @@ pub fn draw_link(
 
     // draw cardinality if necessary
     if let Some((card, card_id)) = card_type {
+        let font_id = FontId { size: 14.0, family: egui::FontFamily::Monospace };
+
         let card = if !ids.contains(&card_id) {
             match card {
                 CardType::OneToOne => "1",
@@ -104,13 +107,32 @@ pub fn draw_link(
                 ].into(),
                 Align2::CENTER_CENTER, 
                 card, 
-                FontId { size: 14.0, family: egui::FontFamily::Monospace }, 
+                font_id, 
                 Color32::BLACK
             ));
         });
     }
 
     // draw min, max if necessary
+    if !minmax.is_empty() {
+        // draw
+        ui.fonts(|fonts| {
+            let font_id = FontId { size: 14.0, family: egui::FontFamily::Monospace };
+            let width = minmax.char_indices().into_iter().map(|(_, char)| fonts.glyph_width(&font_id, char)).sum::<f32>() / 2.0;
+
+            shapes.push(Shape::text(    
+                fonts,        
+                [
+                    low.x * width + center.x,
+                    low.y * width + center.y
+                ].into(),
+                Align2::CENTER_CENTER, 
+                minmax, 
+                font_id, 
+                Color32::BLACK
+            ));
+        });
+    }
 
     shapes
 }

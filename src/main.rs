@@ -146,14 +146,14 @@ impl eframe::App for App {
         let mut skip_click_check = false;
         if self.selected.is_some() {
             let found = self.objects.objects.iter().find(|a| a.name.eq_ignore_ascii_case(self.search.as_str()) && Some(a.id) != self.selected && !self.search.is_empty()).cloned();
-            let connected_to = self.objects.links.iter()
+            let mut connected_to = self.objects.links.iter_mut()
                 .filter(|a| Some(a.a) == self.selected || Some(a.b) == self.selected)
-                .collect::<Vec<&Link>>();
-            let connected_to = connected_to.iter()
+                .collect::<Vec<&mut Link>>();
+            let mut connected_to = connected_to.iter_mut()
                 .map(|link| {
-                    self.objects.objects.clone().iter().find(|a| (a.id == link.a || a.id == link.b) && Some(a.id) != self.selected).unwrap().clone()
+                    (self.objects.objects.clone().iter().find(|a| (a.id == link.a || a.id == link.b) && Some(a.id) != self.selected).unwrap().clone(), link)
                 })
-                .collect::<Vec<Object>>();
+                .collect::<Vec<(Object, &mut &mut Link)>>();
             let selected = self.objects.objects.iter_mut().find(|a| Some(a.id) == self.selected).unwrap();
             let mut to_remove: Option<u32> = None;
             let mut remove_link: Option<(u32, u32)> = None;
@@ -258,13 +258,14 @@ impl eframe::App for App {
 
                     // add links
                     ui.collapsing("Links", |ui| {
-                        connected_to.iter().for_each(|other| {
+                        connected_to.iter_mut().for_each(|(other, other_link)| {
                             ui.horizontal(|ui| {
                                 // let other = self.objects.objects.iter().find(|a| a.id == other.a || a.id == other.b).unwrap();
                                 ui.label(format!("-> {}", other.name));
                                 if ui.button("Remove").clicked() {
                                     remove_link = Some((selected.id, other.id));
                                 }
+                                ui.text_edit_singleline(&mut other_link.minmax);
                             });
                         });
                     });
@@ -330,7 +331,7 @@ impl eframe::App for App {
                 self.objects.links.iter().for_each(|link| {
                     let a = self.objects.objects.iter().find(|a| a.id == link.a).unwrap();
                     let b = self.objects.objects.iter().find(|a| a.id == link.b).unwrap();
-                    shapes.extend(draw_link(&mut ids, a, b, ui, &mut state));
+                    shapes.extend(draw_link(&mut ids, a, b, ui, &mut state, &link.minmax));
                 });
 
                 // sync
