@@ -49,7 +49,7 @@ pub fn draw_object(
         object.width = text_width + 20.0;
         object.height = text_height + 20.0;
 
-        match object.object_type {
+        match &object.object_type {
             ObjectType::Entity => vec![
                 Shape::Rect(RectShape {
                     rect: Rect { 
@@ -160,31 +160,10 @@ pub fn draw_object(
                 )
             ],
 
-            ObjectType::Parameter => vec![
-                Shape::Path(PathShape { 
-                    points: (0 .. 100).map(|idx| {
-                        let perc = idx as f32 / 100.0;
-                        pos2(
-                            f32::cos(perc * 2.0 * PI) * (object.width / 2.0) + center.x, 
-                            f32::sin(perc * 2.0 * PI) * (object.height / 2.0) + center.y
-                        )
-                    }).collect(), 
-                    closed: true, 
-                    fill: Color32::WHITE, 
-                    stroke: Stroke { width: 2.0, color }
-                }),
-                Shape::text(
-                    fonts, 
-                    center, 
-                    Align2::CENTER_CENTER, 
-                    &object.name, 
-                    font_id, 
-                    color
-                )
-            ],
-
-            ObjectType::FunctionParameter => {
+            ObjectType::Parameter { is_id } |
+            ObjectType::FunctionParameter { is_id } => {
                 let mut result = Vec::new();
+                let dashed = matches!(object.object_type, ObjectType::FunctionParameter { .. });
 
                 result.extend(Shape::dashed_line( 
                     &(0 .. 100).map(|idx| {
@@ -196,8 +175,18 @@ pub fn draw_object(
                     }).collect::<Vec<Pos2>>(), 
                     Stroke { width: 2.0, color },
                     5.0,
-                    5.0
+                    if dashed { 5.0 } else { 0.0 }
                 ));
+
+                if *is_id {
+                    result.push(Shape::LineSegment { 
+                        points: [
+                            pos2(text_width / 2.0 + center.x, center.y + (text_height / 2.0)), 
+                            pos2(-text_width / 2.0 + center.x, center.y + (text_height / 2.0))
+                        ], 
+                        stroke: Stroke { width: 2.0, color }
+                    });
+                }
 
                 result.push(Shape::text(
                     fonts, 
@@ -211,35 +200,40 @@ pub fn draw_object(
                 result
             },
 
-            ObjectType::KeyParameter=> vec![
-                Shape::Path(PathShape { 
-                    points: (0 .. 100).map(|idx| {
+            ObjectType::Polymorph { poly } => {
+                let id = match poly {
+                    crate::objects::Polymorph::Union => "U",
+                    crate::objects::Polymorph::Disjoint => "d",
+                    crate::objects::Polymorph::Overlapping => "o",
+                };
+                let width = id.char_indices().into_iter().map(|(_, c)| fonts.glyph_width(&font_id, c)).sum::<f32>() + 15.0;
+
+                let mut result = Vec::new();
+
+                result.extend(Shape::dashed_line( 
+                    &(0 .. 100).map(|idx| {
                         let perc = idx as f32 / 100.0;
                         pos2(
-                            f32::cos(perc * 2.0 * PI) * (object.width / 2.0) + center.x, 
-                            f32::sin(perc * 2.0 * PI) * (object.height / 2.0) + center.y
+                            f32::cos(perc * 2.0 * PI) * (width / 2.0) + center.x, 
+                            f32::sin(perc * 2.0 * PI) * (width / 2.0) + center.y
                         )
-                    }).collect(), 
-                    closed: true, 
-                    fill: Color32::WHITE, 
-                    stroke: Stroke { width: 2.0, color }
-                }),
-                Shape::LineSegment { 
-                    points: [
-                        pos2(text_width / 2.0 + center.x, center.y + (text_height / 2.0)), 
-                        pos2(-text_width / 2.0 + center.x, center.y + (text_height / 2.0))
-                    ], 
-                    stroke: Stroke { width: 2.0, color }
-                },
-                Shape::text(
+                    }).collect::<Vec<Pos2>>(), 
+                    Stroke { width: 2.0, color },
+                    5.0,
+                    0.0
+                ));
+
+                result.push(Shape::text(
                     fonts, 
                     center, 
                     Align2::CENTER_CENTER, 
-                    &object.name, 
+                    id, 
                     font_id, 
                     color
-                )
-            ],
+                ));
+
+                result
+            }
         }
     })
 }

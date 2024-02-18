@@ -175,12 +175,16 @@ pub fn get_point_around_object(
         },
 
         // get edge on parameter circle
-        ObjectType::Parameter |
-        ObjectType::FunctionParameter |
-        ObjectType::KeyParameter => Vec2 { 
+        ObjectType::Parameter { .. } |
+        ObjectType::FunctionParameter { .. } => Vec2 { 
             x: rad.cos() * (object.width / 2.0) + center.x, 
             y: rad.sin() * (object.height / 2.0) + center.y
         },
+        
+        ObjectType::Polymorph { .. } => Vec2 { 
+            x: rad.cos() * 15.0 + center.x, 
+            y: rad.sin() * 15.0 + center.y
+        }
     }
     
 }

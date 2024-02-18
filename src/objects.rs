@@ -51,11 +51,19 @@ pub enum ObjectType {
     #[default]
     Entity,
     Relationship { card: CardType },
-    Parameter,
+    Parameter { is_id: bool },
     EntityDependent,
     RelationshipDependent { card: CardType },
-    FunctionParameter,
-    KeyParameter
+    FunctionParameter { is_id: bool },
+    Polymorph { poly: Polymorph }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub enum Polymorph {
+    #[default]
+    Union,
+    Disjoint,
+    Overlapping
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -72,11 +80,11 @@ impl ObjectType {
         match self {
             ObjectType::Entity => false,
             ObjectType::Relationship { .. } => false,
-            ObjectType::Parameter => false,
+            ObjectType::Parameter { .. } => false,
             ObjectType::EntityDependent => true,
             ObjectType::RelationshipDependent { .. } => true,
-            ObjectType::FunctionParameter => false,
-            ObjectType::KeyParameter => false
+            ObjectType::FunctionParameter { .. } => false,
+            ObjectType::Polymorph { .. } => false
         }
     }
 }

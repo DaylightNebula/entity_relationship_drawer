@@ -210,18 +210,18 @@ impl eframe::App for App {
                             );
                             let e = ui.selectable_value(
                                 &mut selected.object_type, 
-                                ObjectType::Parameter, 
+                                ObjectType::Parameter { is_id: false }, 
                                 "Parameter"
                             );
                             let f = ui.selectable_value(
                                 &mut selected.object_type, 
-                                ObjectType::FunctionParameter, 
+                                ObjectType::FunctionParameter { is_id: false }, 
                                 "Functional Parameter"
                             );
                             let g = ui.selectable_value(
                                 &mut selected.object_type, 
-                                ObjectType::KeyParameter, 
-                                "Key Parameter"
+                                ObjectType::Polymorph { poly: objects::Polymorph::Union }, 
+                                "Polymorph"
                             );
 
                             // update combo changed
@@ -249,6 +249,25 @@ impl eframe::App for App {
                                     if a.clicked() || b.clicked() || c.clicked() || d.clicked() { combo_changed = true; }
                                 });
                         },
+                        ObjectType::Parameter { is_id } |
+                        ObjectType::FunctionParameter { is_id } => {
+                            ui.checkbox(is_id, "Is ID?");
+                        }
+                        ObjectType::Polymorph { poly } => {
+                            egui::ComboBox::from_label("Polymorph Type")
+                                .selected_text(format!("{:?}", poly))
+                                .show_ui(ui, |ui| {
+                                    // yes I know doing this twice is kinda hacky
+                                    if ui.rect_contains_pointer(ui.clip_rect()) { skip_click_check = true; }
+
+                                    let a = ui.selectable_value(poly, objects::Polymorph::Union, "Union");
+                                    let b = ui.selectable_value(poly, objects::Polymorph::Disjoint, "Disjoin");
+                                    let c = ui.selectable_value(poly, objects::Polymorph::Overlapping, "Overlapping");
+
+                                    // update combo changed
+                                    if a.clicked() || b.clicked() || c.clicked() { combo_changed = true; }
+                                });
+                        }
                         _ => {}
                     }
 
@@ -262,9 +281,9 @@ impl eframe::App for App {
                             ObjectType::RelationshipDependent { .. } => {
                                 selected.name = selected.name.to_uppercase();
                             },
-                            ObjectType::Parameter |
-                            ObjectType::KeyParameter |
-                            ObjectType::FunctionParameter => {}
+                            ObjectType::Parameter { .. } |
+                            ObjectType::FunctionParameter { .. }  => {}
+                            ObjectType::Polymorph { .. } => { selected.name = format!("{}_poly", selected.name.to_lowercase().replace("_poly", "")) }
                         }
                     }
 
