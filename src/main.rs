@@ -273,13 +273,13 @@ impl eframe::App for App {
 
                     // do text formatting
                     if edit.changed() || combo_changed {
-                        selected.name = selected.name.replace(" ", "_");
+                        // selected.name = selected.name;
                         match selected.object_type {
                             ObjectType::Entity | 
                             ObjectType::EntityDependent | 
                             ObjectType::Relationship { .. } | 
                             ObjectType::RelationshipDependent { .. } => {
-                                selected.name = selected.name.to_uppercase();
+                                selected.name = selected.name.to_uppercase().replace(" ", "_");
                             },
                             ObjectType::Parameter { .. } |
                             ObjectType::FunctionParameter { .. }  => {}

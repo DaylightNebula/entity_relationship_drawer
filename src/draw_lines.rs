@@ -13,7 +13,8 @@ pub fn draw_link(
     state: &mut AppState,
     minmax: &String
 ) -> Vec<Shape> {
-    let use_double = a.object_type.use_double_link() || b.object_type.use_double_link();
+    let mut use_double = a.object_type.use_double_link() || b.object_type.use_double_link();
+    if a.object_type.force_not_double() || b.object_type.force_not_double() { use_double = false; }
 
     // get some angles
     let a_to_b = f32::atan2(a.y - b.y, a.x - b.x);

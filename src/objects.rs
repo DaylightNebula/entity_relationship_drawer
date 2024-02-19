@@ -87,6 +87,18 @@ impl ObjectType {
             ObjectType::Polymorph { .. } => false
         }
     }
+
+    pub fn force_not_double(&self) -> bool {
+        match self {
+            ObjectType::Entity => false,
+            ObjectType::Relationship { card } => false,
+            ObjectType::Parameter { is_id } => true,
+            ObjectType::EntityDependent => false,
+            ObjectType::RelationshipDependent { card } => false,
+            ObjectType::FunctionParameter { is_id } => true,
+            ObjectType::Polymorph { poly } => true,
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]

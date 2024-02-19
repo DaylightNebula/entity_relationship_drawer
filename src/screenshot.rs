@@ -1,7 +1,7 @@
 use egui::{pos2, Event, Pos2, Rect, ViewportCommand, Visuals};
 use native_dialog::FileDialog;
 
-use crate::{draw_object::draw_object, objects::Objects, AppState};
+use crate::{draw_lines::draw_link, draw_object::draw_object, objects::Objects, AppState};
 
 pub struct ScreenshotApp {
     objects: Objects,
@@ -11,7 +11,7 @@ pub struct ScreenshotApp {
 impl eframe::App for ScreenshotApp {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         // create state
-        let state = &mut AppState { 
+        let mut state = &mut AppState { 
             clip: Rect { min: Pos2::default(), max: Pos2 { x: self.size.width(), y: self.size.height() } }, 
             scroll_offset: Pos2::default(),
             click: false,
@@ -25,8 +25,15 @@ impl eframe::App for ScreenshotApp {
         // draw
         egui::CentralPanel::default().show(ctx, |ui| {
             let mut shapes = vec![];
+            let mut card_ids = Vec::new();
+            let mut union_ids = Vec::new();
             self.objects.objects.iter_mut().for_each(|object| {
                 shapes.extend(draw_object(object, ui, state));
+            });
+            self.objects.links.iter().for_each(|link| {
+                let a = self.objects.objects.iter().find(|a| a.id == link.a).unwrap();
+                let b = self.objects.objects.iter().find(|a| a.id == link.b).unwrap();
+                shapes.extend(draw_link(&mut card_ids, &mut union_ids, a, b, ui, &mut state, &link.minmax));
             });
             ui.painter().extend(shapes);
         });
@@ -65,64 +72,33 @@ impl eframe::App for ScreenshotApp {
 
 pub fn screenshot(objects: Objects) {
     // get size of objects
-    let mut size = Rect { min: Pos2 { x: f32::MAX, y: f32::MAX }, max: Pos2 { x: f32::MIN, y: f32::MIN } };
-    objects.objects.iter().for_each(|object| {
-        let min = pos2(object.x - object.width, object.y - object.width);
-        let max = pos2(object.x + object.width, object.y + object.width);
-        if min.x < size.min.x { size.min.x = min.x; }
-        if min.y < size.min.y { size.min.y = min.y; }
-        if max.x > size.max.x { size.max.x = max.x; }
-        if max.y > size.max.y { size.max.y = max.y; }
-    });
-    println!("Size {:?}", size);
+    // let mut size = Rect { min: Pos2 { x: f32::MAX, y: f32::MAX }, max: Pos2 { x: f32::MIN, y: f32::MIN } };
+    // objects.objects.iter().for_each(|object| {
+    //     let min = pos2(object.x - object.width, object.y - object.width);
+    //     let max = pos2(object.x + object.width, object.y + object.width);
+    //     if min.x < size.min.x { size.min.x = min.x; }
+    //     if min.y < size.min.y { size.min.y = min.y; }
+    //     if max.x > size.max.x { size.max.x = max.x; }
+    //     if max.y > size.max.y { size.max.y = max.y; }
+    // });
+
+    let width = 1920.0;
+    let height = 1080.0;
+    println!("Size {} {}", width, height);
 
     // run screen shot app
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([size.width(), size.height()])
-            .with_min_inner_size([size.width(), size.height()]),
+            .with_inner_size([width, height])
+            .with_min_inner_size([width, height]),
         ..Default::default()
     };
 
     // run screenshot app
-    let app = ScreenshotApp { objects, size };
+    let app = ScreenshotApp { objects, size: Rect { min: pos2(0.0, 0.0), max: pos2(1920.0, 1080.0) } };
     eframe::run_native("screenshot", native_options, Box::new(|ctx| {
         ctx.egui_ctx.set_visuals(Visuals::light());
         ctx.egui_ctx.send_viewport_cmd(ViewportCommand::Screenshot);
         Box::new(app)
     })).unwrap();
-
-    // create image
-    // // let mut pixels: Vec<u8> = vec![0; 4 * size.width() as usize * size.height() as usize];
-    // let ctx = Context::default();
-    // ctx.set_visuals(Visuals::light());
-
-    // for i in 0 .. 3 {
-    //     ctx.begin_frame(RawInput::default());
-    //     ctx.send_viewport_cmd(ViewportCommand::Screenshot);
-    
-    //     // render
-    //     egui::CentralPanel::default().show(&ctx, |ui| {
-    //         let state = &mut AppState { 
-    //             clip: Rect { min: Pos2::default(), max: Pos2 { x: size.width(), y: size.height() } }, 
-    //             scroll_offset: Pos2::default(),
-    //             click: false,
-    //             delete: false,
-    //             mouse_position: pos2(-100.0, -100.0),
-    //             selected: None,
-    //             dragging: false,
-    //             to_delete: Vec::new()
-    //         };
-    //         objects.objects.iter_mut().for_each(|object| {
-    //             object.draw(ui, state);
-    //         });
-
-    //         ui.input(|input| {
-    //             println!("Input {:?}", input.raw.events);
-    //         });
-    //     });
-    
-    //     // end render
-    //     let output = ctx.end_frame();
-    // }
 }
