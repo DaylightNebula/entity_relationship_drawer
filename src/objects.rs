@@ -37,12 +37,9 @@ impl Objects {
 
     pub fn create_tree(&mut self, keys: Vec<String>) {
         if keys.is_empty() { return }
-        let mut iter = keys.iter();
-        let first = iter.next().unwrap();
-        let mut node = BMinusNode { keys: vec![first.clone()], children: vec![] };
-        iter.for_each(|a| node.insert(a.clone()));
-        node.debug();
-        self.trees.push(node);
+        let created = BMinusNode::create(keys);
+        created.debug();
+        self.trees.push(created);
     }
 }
 

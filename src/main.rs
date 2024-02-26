@@ -37,9 +37,16 @@ impl App {
     pub fn from_context(context: &eframe::CreationContext<'_>) -> Self {
         // set visuals
         context.egui_ctx.set_visuals(Visuals::light());
+
+        let mut objects = Objects::default();
+        let content = std::fs::read_to_string("bminustreetest.txt").unwrap();
+        let content: Vec<String> = content.split("\n").map(|a| a.into()).collect();
+        let mut content: Vec<String> = content[0..11].into();
+        content.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        objects.create_tree(content);
         
         // create objects
-        Self { objects: Objects::default(), scroll_offset: Pos2::default(), selected: None, saved_to: None, search: String::new(), clip: Rect { min: Pos2::default(), max: Pos2::default() } }
+        Self { objects, scroll_offset: Pos2::default(), selected: None, saved_to: None, search: String::new(), clip: Rect { min: Pos2::default(), max: Pos2::default() } }
     }
 
     pub fn save_as(&mut self) {
