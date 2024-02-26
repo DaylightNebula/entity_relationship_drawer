@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use crate::bminustree::BMinusNode;
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Objects {
     pub objects: Vec<Object>,
     pub links: Vec<Link>,
+    pub trees: Vec<BMinusNode>,
     pub next_id: u32
 }
 
@@ -31,6 +34,16 @@ impl Objects {
     // gets a link with the given node
     pub fn get_link(&self, node: u32) -> Option<&Link> { self.links.iter().find(|a| a.a == node || a.b == node) }
     pub fn get_link_mut(&mut self, node: u32) -> Option<&mut Link> { self.links.iter_mut().find(|a| a.a == node || a.b == node) }
+
+    pub fn create_tree(&mut self, keys: Vec<String>) {
+        if keys.is_empty() { return }
+        let mut iter = keys.iter();
+        let first = iter.next().unwrap();
+        let mut node = BMinusNode { keys: vec![first.clone()], children: vec![] };
+        iter.for_each(|a| node.insert(a.clone()));
+        node.debug();
+        self.trees.push(node);
+    }
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -91,12 +104,12 @@ impl ObjectType {
     pub fn force_not_double(&self) -> bool {
         match self {
             ObjectType::Entity => false,
-            ObjectType::Relationship { card } => false,
-            ObjectType::Parameter { is_id } => true,
+            ObjectType::Relationship { .. } => false,
+            ObjectType::Parameter { .. } => true,
             ObjectType::EntityDependent => false,
-            ObjectType::RelationshipDependent { card } => false,
-            ObjectType::FunctionParameter { is_id } => true,
-            ObjectType::Polymorph { poly } => true,
+            ObjectType::RelationshipDependent { .. } => false,
+            ObjectType::FunctionParameter { .. } => true,
+            ObjectType::Polymorph { .. } => true,
         }
     }
 }

@@ -10,6 +10,7 @@ pub mod draw_lines;
 pub mod draw_object;
 pub mod objects;
 pub mod screenshot;
+pub mod bminustree;
 
 pub struct App {
     pub objects: Objects,
